@@ -1,0 +1,88 @@
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
+
+import argparse
+import re
+
+from gmail_cli.util import (
+    b64_url_decode,
+    get_gmail_service
+)
+
+
+def get_params():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'query',
+        type=str,
+        help='which messages to retrieve (default: in:inbox)'
+    )
+    parser.add_argument(
+        'regex',
+        type=str,
+        help='what to filter out (default: .*)'
+    )
+    parser.add_argument(
+        '--max-results',
+        type=int,
+        help='max results (default: 10)',
+        default=10
+    )
+    parser.add_argument(
+        '--delete',
+        action='store_true',
+        help='delete messages which match (default: false)',
+        default=False
+    )
+    parser.add_argument(
+        '--client-secret-file',
+        type=str,
+        help='path to the client secret file (default: .*)',
+        default='client_secret.json'
+    )
+    parser.add_argument(
+        '--application-name',
+        type=str,
+        help='the app name (default: .*)',
+        default='gmail-grep'
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    params = get_params()
+    service = get_gmail_service(
+        params.application_name, params.client_secret_file)
+    msgsr = service.users().messages()
+
+    results = msgsr.list(
+        userId='me', q=params.query, maxResults=params.max_results).execute()
+
+    messages = results.get('messages', [])
+    if not messages:
+        print('No messages found.')
+        return
+
+    regex = re.compile(params.regex, re.DOTALL)
+
+    for minfo in messages:
+        msg = msgsr.get(userId='me', id=minfo['id'], format='raw').execute()
+
+        try:
+            raw = str(msg['raw'])
+            data = b64_url_decode(raw)
+            match = regex.match(data)
+            if match:
+                # TODO: handle more than one capture group
+                print(match.group(1))
+
+                if params.delete:
+                    msgsr.trash(userId='me', id=minfo['id']).execute()
+        except:
+            pass
+
+
+if __name__ == '__main__':
+    main()
