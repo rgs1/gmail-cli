@@ -30,7 +30,9 @@ def get_credentials(appname, secret_file, scopes=DEFAULT_SCOPES):
     if not credentials or credentials.invalid:
         flow = oauth2client.client.flow_from_clientsecrets(secret_file, scopes)
         flow.user_agent = appname
-        credentials = oauth2client.tools.run_flow(flow, store)
+        oauth2args = '--auth_host_name localhost --logging_level INFO'.split()
+        flags = oauth2client.tools.argparser.parse_args(oauth2args)
+        credentials = oauth2client.tools.run_flow(flow, store, flags)
 
     return credentials
 
